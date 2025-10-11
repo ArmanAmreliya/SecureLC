@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { Link } from 'expo-router';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 
 export default function AboutScreen() {
   return (
@@ -10,9 +10,9 @@ export default function AboutScreen() {
         a custom implementation or fork of Expo Router.
       </Text>
       
-      <Link href="/" style={styles.link}>
+      <TouchableOpacity onPress={() => Alert.alert('Home', 'Back to Home') } style={styles.link}>
         <Text style={styles.linkText}>Back to Home</Text>
-      </Link>
+      </TouchableOpacity>
     </View>
   );
 }

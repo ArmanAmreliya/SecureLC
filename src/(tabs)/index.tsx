@@ -1,5 +1,5 @@
-import { View, Text, StyleSheet } from 'react-native';
-import { Link } from 'expo-router';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 
 export default function HomeScreen() {
   return (
@@ -7,9 +7,12 @@ export default function HomeScreen() {
       <Text style={styles.title}>Welcome to SecureLC!</Text>
       <Text style={styles.subtitle}>Firebase-enabled routing application</Text>
       
-      <Link href="/about" style={styles.link}>
+      <TouchableOpacity
+        onPress={() => Alert.alert('About', 'This would navigate to the About screen.')}
+        style={styles.link}
+      >
         <Text style={styles.linkText}>Go to About Page</Text>
-      </Link>
+      </TouchableOpacity>
     </View>
   );
 }
