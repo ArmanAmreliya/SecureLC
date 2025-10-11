@@ -1,12 +1,10 @@
 import {
-  getAuth,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  sendPasswordResetEmail, // <-- New: Added for password reset
 } from "firebase/auth";
-import { app } from "../firebaseConfig";
-
-const auth = getAuth(app);
+import { auth } from "../firebaseConfig";
 
 export const signIn = async (email, password) => {
   try {
@@ -45,4 +43,10 @@ export const signOutUser = async () => {
   }
 };
 
+// New function for Task 4: Sends a password reset email via Firebase
+export const resetPassword = (email) => {
+  return sendPasswordResetEmail(auth, email);
+};
+
+// Export auth instance for use in other parts of the app
 export const getAuthInstance = () => auth;

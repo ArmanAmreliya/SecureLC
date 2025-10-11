@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { View, StyleSheet, KeyboardAvoidingView, Platform } from "react-native";
+import {
+  View,
+  StyleSheet,
+  KeyboardAvoidingView,
+  Platform,
+  Alert,
+} from "react-native";
 import {
   TextInput,
   Button,
@@ -7,7 +13,8 @@ import {
   useTheme,
   HelperText,
 } from "react-native-paper";
-// routing handled by AuthContext + conditional rendering in app/_layout.js
+// Navigation using React Navigation
+import { useNavigation } from "@react-navigation/native";
 import * as LocalAuthentication from "expo-local-authentication";
 import { signIn as firebaseSignIn } from "../../services/authService";
 
@@ -18,6 +25,7 @@ export default function LoginScreen() {
   const [error, setError] = useState("");
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const theme = useTheme();
+  const navigation = useNavigation(); // Initialize navigation
 
   const validate = () => {
     if (!email) return "Employee ID is required";
@@ -53,7 +61,19 @@ export default function LoginScreen() {
       await firebaseSignIn(email, password);
     } catch (e) {
       console.error("Login error", e);
-      setError(e?.message || "Login failed. Please try again.");
+      // Enhanced user-friendly error handling for Firebase errors
+      let errorMessage = "Login failed. Please check your credentials.";
+      if (
+        e.code === "auth/user-not-found" ||
+        e.code === "auth/wrong-password"
+      ) {
+        errorMessage = "Invalid Employee ID or password.";
+      } else if (e.code) {
+        errorMessage = `Login failed: ${e.code
+          .replace("auth/", "")
+          .replace(/-/g, " ")}.`;
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -63,23 +83,30 @@ export default function LoginScreen() {
     try {
       const isSupported = await LocalAuthentication.hasHardwareAsync();
       if (!isSupported)
-        return alert("Biometric authentication is not available.");
+        return Alert.alert(
+          "Error",
+          "Biometric authentication is not available."
+        );
 
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-      if (!isEnrolled) return alert("No biometrics enrolled on this device.");
+      if (!isEnrolled)
+        return Alert.alert("Error", "No biometrics enrolled on this device.");
 
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: "Authenticate to SecureLC",
       });
 
       if (result.success) {
-        // On success the AuthContext will update and render Home
+        // Biometric logic here (usually for session convenience after a primary sign in)
       } else {
-        alert("Biometric authentication failed.");
+        Alert.alert(
+          "Authentication Failed",
+          "Biometric authentication failed or was cancelled."
+        );
       }
     } catch (e) {
       console.error("Biometric auth error", e);
-      alert("Biometric authentication error");
+      Alert.alert("Error", "Biometric authentication error occurred.");
     }
   };
 
@@ -130,12 +157,21 @@ export default function LoginScreen() {
             mode="outlined"
             onPress={handleBiometricAuth}
             style={[styles.button, styles.biometricButton]}
+            icon="fingerprint"
           >
             Login with Biometrics
           </Button>
         ) : null}
 
-        <Text style={styles.small}>Forgot password? Contact HR.</Text>
+        {/* TASK 4: Changed Text component to Button for "Forgot Password" */}
+        <Button
+          mode="text"
+          onPress={() => navigation.navigate("forgotPassword")}
+          labelStyle={styles.forgotPasswordLabel}
+          style={styles.forgotPasswordButton}
+        >
+          Forgot password?
+        </Button>
       </View>
     </KeyboardAvoidingView>
   );
@@ -160,9 +196,15 @@ const styles = StyleSheet.create({
   button: {
     marginTop: 12,
   },
-  small: {
-    marginTop: 18,
-    textAlign: "center",
-    color: "#666",
+  biometricButton: {
+    borderColor: "#aaa",
+  },
+  forgotPasswordButton: {
+    marginTop: 20,
+    alignSelf: "center", // Center the text button
+  },
+  forgotPasswordLabel: {
+    fontSize: 14,
+    textDecorationLine: "underline",
   },
 });

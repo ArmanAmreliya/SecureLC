@@ -1,15 +1,42 @@
-import React from "react";
+import React, { useState } from "react";
 import { View, StyleSheet, ScrollView } from "react-native";
-import { Text, Card, Avatar, Button, Divider } from "react-native-paper";
+import {
+  Text,
+  Card,
+  Avatar,
+  Button,
+  Divider,
+  List,
+  Switch,
+} from "react-native-paper";
 import { useAuth } from "../../context/AuthContext";
-import { signOutUser } from "../../services/authService";
 
 export default function ProfileScreen() {
-  const { user } = useAuth();
+  const { user, signOut, initializing } = useAuth();
+  const [enableInAppSounds, setEnableInAppSounds] = useState(true);
+
+  // Generate user initials from email
+  const getUserInitials = (email) => {
+    if (!email) return "U";
+    const name = email.split("@")[0];
+    const nameParts = name.split(".");
+    if (nameParts.length >= 2) {
+      return (nameParts[0].charAt(0) + nameParts[1].charAt(0)).toUpperCase();
+    }
+    return name.charAt(0).toUpperCase();
+  };
+
+  if (initializing) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <Text>Loading...</Text>
+      </View>
+    );
+  }
 
   const handleLogout = async () => {
     try {
-      await signOutUser();
+      await signOut();
     } catch (error) {
       console.error("Logout error:", error);
     }
@@ -19,7 +46,11 @@ export default function ProfileScreen() {
     <ScrollView style={styles.container}>
       <Card style={styles.card}>
         <Card.Content style={styles.profileHeader}>
-          <Avatar.Icon size={80} icon="account" style={styles.avatar} />
+          <Avatar.Text
+            size={80}
+            label={getUserInitials(user?.email)}
+            style={styles.avatar}
+          />
           <Text variant="headlineSmall" style={styles.name}>
             {user?.email?.split("@")[0] || "User"}
           </Text>
@@ -68,6 +99,33 @@ export default function ProfileScreen() {
       <Card style={styles.card}>
         <Card.Content>
           <Text variant="titleMedium" style={styles.sectionTitle}>
+            User Details
+          </Text>
+          <Divider style={styles.divider} />
+
+          <List.Section>
+            <List.Item
+              title="Employee ID"
+              description="EMP001"
+              left={(props) => <List.Icon {...props} icon="badge-account" />}
+            />
+            <List.Item
+              title="Department"
+              description="Information Technology"
+              left={(props) => <List.Icon {...props} icon="office-building" />}
+            />
+            <List.Item
+              title="Join Date"
+              description="January 15, 2023"
+              left={(props) => <List.Icon {...props} icon="calendar" />}
+            />
+          </List.Section>
+        </Card.Content>
+      </Card>
+
+      <Card style={styles.card}>
+        <Card.Content>
+          <Text variant="titleMedium" style={styles.sectionTitle}>
             Settings
           </Text>
           <Divider style={styles.divider} />
@@ -98,6 +156,29 @@ export default function ProfileScreen() {
         </Card.Content>
       </Card>
 
+      <Card style={styles.card}>
+        <Card.Content>
+          <Text variant="titleMedium" style={styles.sectionTitle}>
+            Preferences
+          </Text>
+          <Divider style={styles.divider} />
+
+          <List.Section>
+            <List.Item
+              title="Enable In-App Sounds"
+              description="Play sounds for notifications and interactions"
+              left={(props) => <List.Icon {...props} icon="volume-high" />}
+              right={() => (
+                <Switch
+                  value={enableInAppSounds}
+                  onValueChange={setEnableInAppSounds}
+                />
+              )}
+            />
+          </List.Section>
+        </Card.Content>
+      </Card>
+
       <Button
         mode="contained"
         onPress={handleLogout}
@@ -114,6 +195,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f5f5f5",
+  },
+  centered: {
+    justifyContent: "center",
+    alignItems: "center",
   },
   card: {
     margin: 16,

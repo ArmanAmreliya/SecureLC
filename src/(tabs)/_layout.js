@@ -1,19 +1,64 @@
 import React from "react";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createNativeStackNavigator } from "@react-navigation/native-stack"; // Import for stack navigation
 import { FontAwesome5 } from "@expo/vector-icons";
 import { Platform } from "react-native";
 
+// Import Screens
 import HomeScreen from "./index.js";
 import NewRequestScreen from "./newRequest.js";
 import ProfileScreen from "./profile.js";
+import RequestDetailScreen from "../screens/RequestDetail.js"; // Import the new screen
 
 const Tab = createBottomTabNavigator();
+const HomeStack = createNativeStackNavigator(); // Create the Stack Navigator for the Home tab
+
+// Define the Stack Navigator for the 'Home' Tab
+function HomeStackScreen() {
+  return (
+    <HomeStack.Navigator>
+      <HomeStack.Screen
+        name="HomeList"
+        component={HomeScreen}
+        options={{
+          headerTitle: "SecureLC Home", // Use the header title from the original Tab.Screen
+        }}
+      />
+      <HomeStack.Screen
+        name="RequestDetails"
+        component={RequestDetailScreen}
+        options={({ route }) => ({
+          // Customize the header title with a detail or use a default
+          headerTitle: route.params?.request?.substation || "Request Details",
+          headerBackTitle: "Back", // Optional: Custom back button title
+        })}
+      />
+    </HomeStack.Navigator>
+  );
+}
 
 export default function TabsLayout() {
+  // Common header options to apply to all Stack Navigators nested in tabs
+  const commonHeaderOptions = {
+    headerStyle: {
+      backgroundColor: "#F6F6F6", // Light clean gray
+      elevation: 0,
+      shadowOpacity: 0,
+      borderBottomWidth: 1,
+      borderBottomColor: "#E8E0D5", // Neutral accent
+    },
+    headerTitleStyle: {
+      fontSize: 18,
+      fontWeight: "600",
+      color: "#1C1C1E", // Almost black
+    },
+    headerTitleAlign: "center",
+  };
+
   return (
     <Tab.Navigator
       screenOptions={{
-        // Tab Bar Styling
+        // Tab Bar Styling (remains the same)
         tabBarActiveTintColor: "#FFC107", // Professional gold/amber
         tabBarInactiveTintColor: "#79747E", // Muted gray
         tabBarStyle: {
@@ -28,28 +73,17 @@ export default function TabsLayout() {
           fontSize: 12,
           fontWeight: "600",
         },
-        // Header Styling
-        headerStyle: {
-          backgroundColor: "#F6F6F6", // Light clean gray
-          elevation: 0,
-          shadowOpacity: 0,
-          borderBottomWidth: 1,
-          borderBottomColor: "#E8E0D5", // Neutral accent
-        },
-        headerTitleStyle: {
-          fontSize: 18,
-          fontWeight: "600",
-          color: "#1C1C1E", // Almost black
-        },
-        headerTitleAlign: "center",
+        // IMPORTANT: Move common header styling to the nested stacks,
+        // but keep the tab header options for NewRequestScreen and ProfileScreen
+        ...commonHeaderOptions, // Apply common header options
       }}
     >
       <Tab.Screen
-        name="home"
-        component={HomeScreen}
+        name="homeStack" // Rename the tab screen name
+        component={HomeStackScreen} // Use the new Stack Navigator component
         options={{
           title: "Home",
-          headerTitle: "SecureLC Home",
+          headerShown: false, // Hide the header for the Tab.Screen, the Stack will show its own header
           tabBarIcon: ({ color, size = 24 }) => (
             <FontAwesome5 name="home" size={size} color={color} />
           ),
