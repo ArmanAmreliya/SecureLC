@@ -1,8 +1,9 @@
 import React, { useEffect } from "react";
+import { NavigationContainer } from "@react-navigation/native";
 import "../firebaseConfig"; // Initialize Firebase
 import { AuthProvider, useAuth } from "../context/AuthContext";
 import LoginScreen from "./(auth)/login";
-import HomeScreen from "./(tabs)/index";
+import TabsLayout from "./(tabs)/_layout";
 
 function AppRoutes() {
   const { user, initializing } = useAuth();
@@ -14,21 +15,20 @@ function AppRoutes() {
 
   if (initializing) return null;
 
-  // Simple conditional rendering instead of expo-router navigation
-  return user
-    ? React.createElement(HomeScreen)
-    : React.createElement(LoginScreen);
+  // Now, render the TabsLayout if logged in
+  return user ? <TabsLayout /> : <LoginScreen />;
 }
 
 export default function RootLayout() {
   useEffect(() => {
-    // Firebase is initialized when firebaseConfig is imported
     console.log("Firebase initialized in SecureLC app");
   }, []);
 
-  return React.createElement(
-    AuthProvider,
-    null,
-    React.createElement(AppRoutes)
+  return (
+    <AuthProvider>
+      <NavigationContainer>
+        <AppRoutes />
+      </NavigationContainer>
+    </AuthProvider>
   );
 }
