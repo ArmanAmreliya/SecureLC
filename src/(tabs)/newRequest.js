@@ -1,241 +1,421 @@
-import React, { useState } from "react";
-import { View, StyleSheet, Alert } from "react-native";
+// File: src/tabs/newRequest.js
+import React, { useState, useEffect } from "react";
+import { View, StyleSheet, Alert, ScrollView } from "react-native";
 import {
   Text,
-  Button,
-  TextInput,
+  IconButton,
   ActivityIndicator,
   useTheme,
+  TextInput,
+  Button,
+  Card,
+  Menu,
 } from "react-native-paper";
-import { Audio } from "expo-audio";
+import { Audio } from "expo-av";
 import { addDoc, collection, serverTimestamp } from "firebase/firestore";
 import { uploadAudioToCloudinary } from "../../services/cloudinaryService";
-import { db, auth } from "../../firebaseConfig"; // Ensure firebaseConfig exports auth
+import { db, auth } from "../../firebaseConfig";
+import SuccessOverlay from "../components/SuccessOverlay";
+
+const substationList = [
+  { label: "Feeder 1 - Substation A", value: "Feeder 1 - Substation A" },
+  { label: "Feeder 2 - Substation A", value: "Feeder 2 - Substation A" },
+  { label: "Feeder 3 - Substation B", value: "Feeder 3 - Substation B" },
+  { label: "Feeder 4 - Substation C", value: "Feeder 4 - Substation C" },
+  { label: "Feeder 5 - Substation C", value: "Feeder 5 - Substation C" },
+];
+
+const faultTypeList = [
+  { label: "Line Break", value: "Line Break" },
+  { label: "Transformer Issue", value: "Transformer Issue" },
+  { label: "Pole Damage", value: "Pole Damage" },
+  { label: "Insulator Flashover", value: "Insulator Flashover" },
+  { label: "Vegetation Interference", value: "Vegetation Interference" },
+  { label: "Other", value: "Other" },
+];
 
 export default function NewRequestScreen() {
   const [substation, setSubstation] = useState("");
+  const [faultType, setFaultType] = useState("");
+  const [notes, setNotes] = useState("");
+
   const [recording, setRecording] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [recordedUri, setRecordedUri] = useState(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audioSound, setAudioSound] = useState(null);
+
+  const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+  const [showSubstationMenu, setShowSubstationMenu] = useState(false);
+  const [showFaultTypeMenu, setShowFaultTypeMenu] = useState(false);
   const theme = useTheme();
 
-  // 1. Refactored function to handle the actual upload and Firestore save
-  async function submitRequest(uri) {
+  useEffect(() => {
+    return audioSound
+      ? () => {
+          audioSound.unloadAsync();
+        }
+      : undefined;
+  }, [audioSound]);
+
+  const resetForm = (isRecordingAgain = false) => {
+    setRecordedUri(null);
+    setRecording(null);
+    if (audioSound) {
+      audioSound.unloadAsync();
+      setAudioSound(null);
+    }
+    setIsPlaying(false);
+    setIsLoading(false);
+
+    if (!isRecordingAgain) {
+      setSubstation("");
+      setFaultType("");
+      setNotes("");
+    }
+  };
+
+  async function submitRequest() {
     setIsLoading(true);
-
     try {
-      // Upload the audio file to Cloudinary
-      const cloudinaryUrl = await uploadAudioToCloudinary(uri);
-
+      const cloudinaryUrl = await uploadAudioToCloudinary(recordedUri);
       if (cloudinaryUrl && auth.currentUser) {
-        // Save the request to Firestore
         await addDoc(collection(db, "requests"), {
           userId: auth.currentUser.uid,
-          substation: substation,
+          substation,
+          faultType,
+          notes,
           audioURL: cloudinaryUrl,
           status: "pending",
           createdAt: serverTimestamp(),
         });
-        Alert.alert("Success", "Your Line Clear request has been submitted.");
-        setSubstation(""); // Clear the input field
+        setShowSuccessOverlay(true);
       } else {
-        Alert.alert(
-          "Error",
-          "Upload failed. Please check your connection and Cloudinary logs."
-        );
+        Alert.alert("Error", "Upload failed. Please try again.");
+        setIsLoading(false);
       }
     } catch (e) {
-      console.error("Error during submission process: ", e);
-      Alert.alert(
-        "Error",
-        "A critical error occurred while saving your request."
-      );
-    } finally {
-      setRecording(null);
-      setIsLoading(false); // Hide loading spinner
+      console.error("Error submitting request:", e);
+      Alert.alert("Error", "Failed to save your request.");
+      setIsLoading(false);
     }
   }
 
-  // Function to start audio recording
-  async function startRecording() {
-    if (!substation.trim()) {
-      Alert.alert(
-        "Required",
-        "Please enter the Feeder & Substation before starting the recording."
-      );
-      return;
-    }
+  const handleSuccessOverlayDismiss = () => {
+    setShowSuccessOverlay(false);
+    resetForm();
+  };
 
+  // --- All other functions (play/pause, start/stop recording etc.) remain the same ---
+  async function playRecording() {
+    if (!recordedUri) return;
     try {
-      // Request permissions for recording
-      const permission = await Audio.requestPermissionsAsync();
-      if (!permission.granted) {
-        Alert.alert("Permission", "Audio recording permission is required.");
-        return;
-      }
-
-      console.log("Starting recording..");
-      const recording = await Audio.Recording.createAsync({
-        android: {
-          extension: ".m4a",
-          outputFormat: Audio.AndroidOutputFormat.MPEG_4,
-          audioEncoder: Audio.AndroidAudioEncoder.AAC,
-          sampleRate: 44100,
-          numberOfChannels: 2,
-          bitRate: 128000,
-        },
-        ios: {
-          extension: ".m4a",
-          outputFormat: Audio.IOSOutputFormat.MPEG4AAC,
-          audioQuality: Audio.IOSAudioQuality.MAX,
-          sampleRate: 44100,
-          numberOfChannels: 2,
-          bitRate: 128000,
-          linearPCMBitDepth: 16,
-          linearPCMIsBigEndian: false,
-          linearPCMIsFloat: false,
-        },
+      if (audioSound) await audioSound.unloadAsync();
+      const { sound } = await Audio.Sound.createAsync({ uri: recordedUri });
+      setAudioSound(sound);
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (!status.isLoaded) return;
+        setIsPlaying(status.isPlaying);
+        if (status.didJustFinish) setIsPlaying(false);
       });
+      await sound.playAsync();
+      setIsPlaying(true);
+    } catch (error) {
+      console.error("Error playing recording:", error);
+    }
+  }
+
+  async function pauseRecording() {
+    if (audioSound) {
+      await audioSound.pauseAsync();
+      setIsPlaying(false);
+    }
+  }
+
+  async function startRecording() {
+    try {
+      const { status } = await Audio.requestPermissionsAsync();
+      if (status !== "granted") return;
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
       setRecording(recording);
       setIsRecording(true);
-      console.log("Recording started");
     } catch (err) {
       console.error("Failed to start recording", err);
-      Alert.alert("Error", "Failed to start recording.");
     }
   }
 
-  // Function to stop audio recording and trigger the confirmation pop-up
   async function stopRecording() {
-    console.log("Stopping recording...");
-
-    // Stop and unload the recording immediately to get the URI.
-    // This must happen before the Alert, as Alert is asynchronous.
-    await recording.stopAndUnloadAsync();
-    const uri = recording.getURI();
-
-    // 2. Implement the Confirmation Pop-up (Alert.alert)
-    Alert.alert(
-      "Confirm Submission",
-      "Submit this Line Clear request?",
-      [
-        {
-          text: "Cancel",
-          onPress: () => {
-            console.log("Submission cancelled. Discarding recording.");
-            // Reset state without submitting the data
-            setIsRecording(false);
-            setRecording(null);
-          },
-          style: "cancel",
-        },
-        {
-          text: "Submit",
-          onPress: () => {
-            // ONLY execute submission logic if the user taps 'Submit'
-            setIsRecording(false); // Reset recording state immediately
-            submitRequest(uri);
-          },
-        },
-      ],
-      { cancelable: false }
-    );
+    if (!recording) return;
+    try {
+      await recording.stopAndUnloadAsync();
+      const uri = recording.getURI();
+      setRecordedUri(uri);
+      setIsRecording(false);
+      setRecording(null);
+    } catch (error) {
+      console.error("Error stopping recording:", error);
+    }
   }
 
-  // Conditional Style for Visual Feedback (Pulsing Effect)
-  const recordButtonStyle = [
-    styles.button,
-    // Change to red/error color when recording
-    isRecording && { backgroundColor: theme.colors.error },
-    // Apply visual "pulse" via shadow/elevation change
-    isRecording && styles.recordingActiveStyle,
-  ];
+  const handleRecordButtonPress = () => {
+    if (isRecording) stopRecording();
+    else {
+      if (!substation.trim() || !faultType.trim()) {
+        Alert.alert(
+          "Required",
+          "Please select a Feeder/Substation and Fault Type."
+        );
+        return;
+      }
+      startRecording();
+    }
+  };
 
   return (
-    <View style={styles.container}>
-      <Text variant="headlineLarge" style={styles.title}>
-        New LC Request
-      </Text>
-
-      {/* 3. Feeder & Substation TextInput is DISABLED during recording */}
-      <TextInput
-        label="Feeder & Substation"
-        value={substation}
-        onChangeText={setSubstation}
-        style={styles.input}
-        // KEY PROP: Disabled if recording or loading
-        disabled={isRecording || isLoading}
+    <>
+      <SuccessOverlay
+        visible={showSuccessOverlay}
+        onDismiss={handleSuccessOverlayDismiss}
       />
+      <ScrollView contentContainerStyle={styles.container}>
+        {/* Feeder & Substation Dropdown */}
+        <Menu
+          visible={showSubstationMenu}
+          onDismiss={() => setShowSubstationMenu(false)}
+          anchor={
+            <Button
+              mode="outlined"
+              onPress={() => setShowSubstationMenu(true)}
+              disabled={isRecording || isLoading}
+              style={[styles.input, substation ? styles.selectedInput : {}]}
+              contentStyle={styles.dropdownButton}
+              labelStyle={substation ? styles.selectedText : {}}
+              buttonColor="#FFFFFF"
+              textColor={substation ? "#000000" : "#79747E"}
+              outlineColor="#FFC107"
+            >
+              {substation || "Select Feeder & Substation"}
+            </Button>
+          }
+        >
+          {substationList.map((item) => (
+            <Menu.Item
+              key={item.value}
+              onPress={() => {
+                setSubstation(item.value);
+                setShowSubstationMenu(false);
+              }}
+              title={item.label}
+            />
+          ))}
+        </Menu>
 
-      {/* Main Record Button */}
-      <Button
-        mode="contained"
-        onPress={isRecording ? stopRecording : startRecording}
-        // Disabled when loading OR when not recording and the input is empty
-        disabled={isLoading || (!isRecording && !substation.trim())}
-        icon={isRecording ? "stop-circle-outline" : "record-circle"}
-        style={recordButtonStyle}
-        contentStyle={styles.buttonContent}
-      >
-        {isRecording ? "Stop Recording" : "Start Recording"}
-      </Button>
+        {/* Line Fault Type Dropdown */}
+        <Menu
+          visible={showFaultTypeMenu}
+          onDismiss={() => setShowFaultTypeMenu(false)}
+          anchor={
+            <Button
+              mode="outlined"
+              onPress={() => setShowFaultTypeMenu(true)}
+              disabled={isRecording || isLoading}
+              style={[styles.input, faultType ? styles.selectedInput : {}]}
+              contentStyle={styles.dropdownButton}
+              labelStyle={faultType ? styles.selectedText : {}}
+              buttonColor="#FFFFFF"
+              textColor={faultType ? "#000000" : "#79747E"}
+              outlineColor="#FFC107"
+            >
+              {faultType || "Select Line Fault Type"}
+            </Button>
+          }
+        >
+          {faultTypeList.map((item) => (
+            <Menu.Item
+              key={item.value}
+              onPress={() => {
+                setFaultType(item.value);
+                setShowFaultTypeMenu(false);
+              }}
+              title={item.label}
+            />
+          ))}
+        </Menu>
 
-      {/* Optional: Visual Status Text */}
-      {isRecording && (
-        <Text style={{ ...styles.statusText, color: theme.colors.error }}>
-          🔴 Recording in progress...
-        </Text>
-      )}
+        <TextInput
+          label="Additional Notes (Optional)"
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+          numberOfLines={3}
+          mode="outlined"
+          style={styles.notesInput}
+          activeOutlineColor={theme.colors.primary}
+          outlineColor={theme.colors.primary}
+          disabled={isRecording || isLoading}
+        />
 
-      {isLoading && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator animating={true} size="large" />
-          <Text style={styles.loadingText}>Submitting request...</Text>
+        <View style={styles.centerContent}>
+          {isLoading ? (
+            <ActivityIndicator animating={true} size="large" />
+          ) : recordedUri ? (
+            <Card style={styles.audioReviewCard}>
+              <Card.Content>
+                <Text variant="titleMedium" style={styles.cardTitle}>
+                  Review Your Recording
+                </Text>
+                <Text variant="bodyMedium" style={styles.cardSubtitle}>
+                  Listen to your voice note and choose an action below.
+                </Text>
+
+                <View style={styles.audioPlayerSection}>
+                  <IconButton
+                    icon={isPlaying ? "pause-circle" : "play-circle"}
+                    size={80}
+                    iconColor="#FFC107"
+                    onPress={isPlaying ? pauseRecording : playRecording}
+                  />
+                </View>
+
+                <View style={styles.actionButtonsRow}>
+                  <View style={styles.actionButtonContainer}>
+                    <IconButton
+                      icon="refresh"
+                      size={40}
+                      mode="contained"
+                      containerColor="#F6F6F6"
+                      iconColor="#79747E"
+                      onPress={() => resetForm(true)}
+                    />
+                    <Text variant="labelMedium" style={styles.actionLabel}>
+                      Record Again
+                    </Text>
+                  </View>
+
+                  <View style={styles.actionButtonContainer}>
+                    <IconButton
+                      icon="check"
+                      size={40}
+                      mode="contained"
+                      containerColor="#FFC107"
+                      iconColor="#000000"
+                      onPress={submitRequest}
+                    />
+                    <Text variant="labelMedium" style={styles.actionLabel}>
+                      Submit Request
+                    </Text>
+                  </View>
+                </View>
+              </Card.Content>
+            </Card>
+          ) : (
+            <>
+              <Text variant="headlineSmall" style={styles.title}>
+                {isRecording ? "Recording..." : "Tap to Record"}
+              </Text>
+              <IconButton
+                icon={isRecording ? "stop" : "microphone"}
+                mode="contained"
+                size={80}
+                onPress={handleRecordButtonPress}
+                disabled={!substation || !faultType}
+                containerColor={isRecording ? "#000000" : "#FFC107"}
+                iconColor={isRecording ? "#FFFFFF" : "#000000"}
+                style={styles.recordButton}
+              />
+            </>
+          )}
         </View>
-      )}
-    </View>
+      </ScrollView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    padding: 16,
-    backgroundColor: "#f5f5f5",
-  },
-  title: {
-    marginBottom: 30,
-    textAlign: "center",
-    fontWeight: "bold",
+    padding: 24,
   },
   input: {
     marginBottom: 20,
   },
-  button: {
-    marginTop: 12,
-    padding: 8,
+  notesInput: {
+    marginBottom: 20,
+    backgroundColor: "#FFFBF0",
   },
-  buttonContent: {
-    height: 40,
+  selectedInput: {
+    backgroundColor: "#FFF8E1", // theme.colors.primaryContainer
+    borderColor: "#FFC107", // theme.colors.primary
+    borderWidth: 2,
   },
-  // Visual Indicator for Active Recording ("Pulsing" effect via shadow)
-  recordingActiveStyle: {
-    shadowColor: "red",
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
-    shadowRadius: 10,
-    elevation: 10,
+  selectedText: {
+    color: "#271B00", // theme.colors.onPrimaryContainer
+    fontWeight: "600",
   },
-  loadingContainer: {
-    marginTop: 20,
+  notesWithContent: {
+    backgroundColor: "#FFF8E1", // theme.colors.primaryContainer
+    borderColor: "#FFC107", // theme.colors.primary
+    borderWidth: 2,
+  },
+  dropdownButton: {
+    justifyContent: "flex-start",
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingTop: 32,
+    minHeight: 250,
+  },
+  title: {
+    fontWeight: "bold",
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  recordButton: {
+    width: 150,
+    height: 150,
+    borderRadius: 75,
+  },
+  audioReviewCard: {
+    width: "100%",
+    paddingVertical: 16,
+    marginBottom: 16,
+  },
+  cardTitle: {
+    textAlign: "center",
+    marginBottom: 8,
+    fontWeight: "600",
+  },
+  cardSubtitle: {
+    textAlign: "center",
+    marginBottom: 24,
+    color: "#666",
+  },
+  audioPlayerSection: {
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  actionButtonsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  actionButtonContainer: {
     alignItems: "center",
   },
-  loadingText: {
-    marginTop: 10,
-  },
-  statusText: {
-    marginTop: 15,
+  actionLabel: {
+    marginTop: 8,
     textAlign: "center",
-    fontWeight: "600",
+    color: "#666",
+    fontSize: 12,
   },
 });

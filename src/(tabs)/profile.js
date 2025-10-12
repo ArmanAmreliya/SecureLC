@@ -50,6 +50,8 @@ export default function ProfileScreen() {
             size={80}
             label={getUserInitials(user?.email)}
             style={styles.avatar}
+            color="#000000"
+            labelStyle={{ color: "#000000", fontSize: 28, fontWeight: "bold" }}
           />
           <Text variant="headlineSmall" style={styles.name}>
             {user?.email?.split("@")[0] || "User"}
@@ -133,6 +135,8 @@ export default function ProfileScreen() {
           <Button
             mode="outlined"
             style={styles.settingButton}
+            buttonColor="#FFFFFF"
+            textColor="#000000"
             onPress={() => console.log("Notification Settings")}
           >
             Notification Settings
@@ -141,6 +145,8 @@ export default function ProfileScreen() {
           <Button
             mode="outlined"
             style={styles.settingButton}
+            buttonColor="#FFFFFF"
+            textColor="#000000"
             onPress={() => console.log("Privacy Settings")}
           >
             Privacy Settings
@@ -149,6 +155,8 @@ export default function ProfileScreen() {
           <Button
             mode="outlined"
             style={styles.settingButton}
+            buttonColor="#FFFFFF"
+            textColor="#000000"
             onPress={() => console.log("Change Password")}
           >
             Change Password
@@ -172,6 +180,8 @@ export default function ProfileScreen() {
                 <Switch
                   value={enableInAppSounds}
                   onValueChange={setEnableInAppSounds}
+                  thumbColor={enableInAppSounds ? "#FFC107" : "#FFFFFF"}
+                  trackColor={{ false: "#D0D0D0", true: "#000000" }}
                 />
               )}
             />
@@ -183,7 +193,9 @@ export default function ProfileScreen() {
         mode="contained"
         onPress={handleLogout}
         style={[styles.button, styles.logoutButton]}
-        buttonColor="#d32f2f"
+        buttonColor="#000000"
+        textColor="#FFFFFF"
+        icon="logout"
       >
         Sign Out
       </Button>
@@ -194,7 +206,7 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#f8f9fa",
   },
   centered: {
     justifyContent: "center",
@@ -203,45 +215,71 @@ const styles = StyleSheet.create({
   card: {
     margin: 16,
     marginBottom: 8,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    elevation: 2,
   },
   profileHeader: {
     alignItems: "center",
-    paddingVertical: 16,
+    paddingVertical: 24,
+    backgroundColor: "#FFC107",
+    borderRadius: 12,
   },
   avatar: {
     marginBottom: 16,
+    backgroundColor: "#FFC107",
+    borderWidth: 3,
+    borderColor: "#000000",
   },
   name: {
     marginBottom: 4,
     textTransform: "capitalize",
+    color: "#000000",
+    fontWeight: "bold",
+    fontSize: 20,
   },
   email: {
-    color: "#666",
+    color: "#000000",
+    fontSize: 14,
   },
   sectionTitle: {
     marginBottom: 8,
+    color: "#000000",
+    fontWeight: "bold",
+    fontSize: 18,
   },
   divider: {
     marginBottom: 16,
+    backgroundColor: "#FFC107",
+    height: 2,
   },
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#E0E0E0",
   },
   label: {
     fontWeight: "600",
-    color: "#333",
+    color: "#000000",
+    fontSize: 16,
   },
   settingButton: {
-    marginBottom: 8,
+    marginBottom: 12,
+    borderColor: "#FFC107",
+    borderWidth: 2,
+    borderRadius: 8,
   },
   button: {
     marginTop: 12,
+    borderRadius: 8,
   },
   logoutButton: {
     margin: 16,
     marginTop: 8,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
 });

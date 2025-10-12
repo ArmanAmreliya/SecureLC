@@ -21,7 +21,21 @@ function HomeStackScreen() {
         name="HomeList"
         component={HomeScreen}
         options={{
-          headerTitle: "SecureLC Home", // Use the header title from the original Tab.Screen
+          headerTitle: "SecureLC Home",
+          headerStyle: {
+            backgroundColor: "#F6F6F6",
+            elevation: 0,
+            shadowOpacity: 0,
+            borderBottomWidth: 3,
+            borderBottomColor: "#FFC107",
+          },
+          headerTitleStyle: {
+            fontSize: 20,
+            fontWeight: "700",
+            color: "#1C1C1E",
+            letterSpacing: 0.5,
+          },
+          headerTitleAlign: "center",
         }}
       />
       <HomeStack.Screen
@@ -31,6 +45,20 @@ function HomeStackScreen() {
           // Customize the header title with a detail or use a default
           headerTitle: route.params?.request?.substation || "Request Details",
           headerBackTitle: "Back", // Optional: Custom back button title
+          headerStyle: {
+            backgroundColor: "#F6F6F6",
+            elevation: 0,
+            shadowOpacity: 0,
+            borderBottomWidth: 3,
+            borderBottomColor: "#FFC107",
+          },
+          headerTitleStyle: {
+            fontSize: 20,
+            fontWeight: "700",
+            color: "#1C1C1E",
+            letterSpacing: 0.5,
+          },
+          headerTitleAlign: "center",
         })}
       />
     </HomeStack.Navigator>
@@ -42,15 +70,16 @@ export default function TabsLayout() {
   const commonHeaderOptions = {
     headerStyle: {
       backgroundColor: "#F6F6F6", // Light clean gray
-      elevation: 0,
-      shadowOpacity: 0,
-      borderBottomWidth: 1,
-      borderBottomColor: "#E8E0D5", // Neutral accent
+      elevation: 2,
+      shadowOpacity: 0.1,
+      borderBottomWidth: 2, // Thicker yellow line to match New Request
+      borderBottomColor: "#FFC107", // Yellow accent line
     },
     headerTitleStyle: {
-      fontSize: 18,
-      fontWeight: "600",
+      fontSize: 20,
+      fontWeight: "700",
       color: "#1C1C1E", // Almost black
+      letterSpacing: 0.5,
     },
     headerTitleAlign: "center",
   };
