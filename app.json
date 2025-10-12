@@ -13,10 +13,13 @@
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
+    "plugins": [],
     "ios": {
       "supportsTablet": true,
       "infoPlist": {
-        "NSMicrophoneUsageDescription": "This app needs access to microphone to record audio for line clear requests."
+        "NSMicrophoneUsageDescription": "This app needs access to microphone to record audio for line clear requests.",
+        "NSLocationWhenInUseUsageDescription": "This app needs location access to track field worker positions during line clear operations for safety monitoring.",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs continuous location access to track field worker positions during active line clear operations for safety monitoring."
       }
     },
     "android": {
@@ -27,7 +30,10 @@
       "permissions": [
         "android.permission.RECORD_AUDIO",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_EXTERNAL_STORAGE"
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION"
       ],
       "edgeToEdgeEnabled": true
     },

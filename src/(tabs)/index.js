@@ -7,6 +7,7 @@ import {
   ActivityIndicator,
   Avatar,
   useTheme,
+  Chip,
 } from "react-native-paper";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useAuth } from "../../context/AuthContext";
@@ -21,6 +22,12 @@ import {
 } from "firebase/firestore";
 import { db } from "../../firebaseConfig";
 import RequestCard from "../components/RequestCard";
+import {
+  startGPSTracking,
+  stopGPSTracking,
+  isGPSTrackingActive,
+  getCurrentLocation,
+} from "../../services/locationService";
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -28,6 +35,9 @@ export default function HomeScreen() {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [activeJob, setActiveJob] = useState(null);
+  const [gpsActive, setGpsActive] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState(null);
 
   // Get user display name from email
   const getUserName = () => {
@@ -44,15 +54,104 @@ export default function HomeScreen() {
     if (!activeJob) return;
 
     try {
+      setGpsLoading(true);
+
+      // Stop GPS tracking
+      await stopGPSTracking();
+      setGpsActive(false);
+
+      // Mark job as complete
       await updateDoc(doc(db, "requests", activeJob.id), {
         status: "completed",
+        completedAt: new Date(),
       });
-      // Stop GPS tracking here if implemented
-      console.log("Job marked as complete, GPS tracking stopped");
+
+      console.log("✅ Job marked as complete, GPS tracking stopped");
     } catch (error) {
       console.error("Error marking job complete:", error);
+    } finally {
+      setGpsLoading(false);
     }
   };
+
+  // Function to start GPS tracking for active job
+  const handleStartGPSTracking = async () => {
+    if (!activeJob) {
+      console.log("❌ No active job to track");
+      return;
+    }
+
+    try {
+      setGpsLoading(true);
+      console.log("🚀 Starting GPS tracking for active job:", activeJob.id);
+
+      const success = await startGPSTracking(activeJob.id);
+
+      if (success) {
+        setGpsActive(true);
+        console.log("✅ GPS tracking started successfully");
+
+        // Get initial location
+        const location = await getCurrentLocation();
+        if (location) {
+          setCurrentLocation(location.coords);
+        }
+      } else {
+        console.log("❌ Failed to start GPS tracking");
+      }
+    } catch (error) {
+      console.error("Error starting GPS tracking:", error);
+    } finally {
+      setGpsLoading(false);
+    }
+  };
+
+  // Function to stop GPS tracking
+  const handleStopGPSTracking = async () => {
+    try {
+      setGpsLoading(true);
+      await stopGPSTracking();
+      setGpsActive(false);
+      console.log("🛑 GPS tracking stopped manually");
+    } catch (error) {
+      console.error("Error stopping GPS tracking:", error);
+    } finally {
+      setGpsLoading(false);
+    }
+  };
+
+  // Check GPS tracking status when component mounts or active job changes
+  useEffect(() => {
+    const checkGPSStatus = async () => {
+      try {
+        const isActive = await isGPSTrackingActive();
+        setGpsActive(isActive);
+
+        if (isActive && activeJob) {
+          console.log(
+            "📍 GPS tracking is already active for job:",
+            activeJob.id
+          );
+
+          // Get current location
+          const location = await getCurrentLocation();
+          if (location) {
+            setCurrentLocation(location.coords);
+          }
+        }
+      } catch (error) {
+        console.error("Error checking GPS status:", error);
+      }
+    };
+
+    if (activeJob) {
+      checkGPSStatus();
+    } else {
+      // No active job, ensure GPS is stopped
+      setGpsActive(false);
+      setCurrentLocation(null);
+    }
+  }, [activeJob]);
 
   // Fetch user's requests from Firestore
   useEffect(() => {
@@ -146,23 +245,84 @@ export default function HomeScreen() {
                 {activeJob.substation}
               </Text>
 
-              <View style={styles.gpsTrackingContainer}>
-                <MaterialIcons
-                  name="gps-fixed"
-                  size={18}
-                  color="#FFC107"
-                  style={styles.gpsIcon}
-                />
-                <Text variant="bodyMedium" style={styles.activeJobDescription}>
-                  Live GPS tracking is active for this job
-                </Text>
+              {/* GPS Tracking Status and Controls */}
+              <View style={styles.gpsSection}>
+                <View style={styles.gpsStatusContainer}>
+                  <MaterialIcons
+                    name={gpsActive ? "gps-fixed" : "gps-off"}
+                    size={20}
+                    color={gpsActive ? "#4CAF50" : "#757575"}
+                    style={styles.gpsIcon}
+                  />
+                  <Text
+                    variant="bodyMedium"
+                    style={[
+                      styles.gpsStatusText,
+                      { color: gpsActive ? "#4CAF50" : "#757575" },
+                    ]}
+                  >
+                    {gpsActive
+                      ? "GPS Tracking Active"
+                      : "GPS Tracking Inactive"}
+                  </Text>
+                </View>
+
+                {/* Current Location Display */}
+                {currentLocation && gpsActive && (
+                  <View style={styles.locationInfoContainer}>
+                    <Chip
+                      icon="map-marker"
+                      textStyle={styles.locationChipText}
+                      style={styles.locationChip}
+                    >
+                      {`${currentLocation.latitude.toFixed(
+                        6
+                      )}, ${currentLocation.longitude.toFixed(6)}`}
+                    </Chip>
+                    <Text variant="bodySmall" style={styles.accuracyText}>
+                      Accuracy: ±{Math.round(currentLocation.accuracy)}m
+                    </Text>
+                  </View>
+                )}
+
+                {/* GPS Control Buttons */}
+                <View style={styles.gpsControlsContainer}>
+                  {!gpsActive ? (
+                    <Button
+                      mode="contained"
+                      onPress={handleStartGPSTracking}
+                      loading={gpsLoading}
+                      disabled={gpsLoading}
+                      style={styles.gpsButton}
+                      labelStyle={styles.gpsButtonText}
+                      icon="play"
+                    >
+                      Start GPS Tracking
+                    </Button>
+                  ) : (
+                    <Button
+                      mode="outlined"
+                      onPress={handleStopGPSTracking}
+                      loading={gpsLoading}
+                      disabled={gpsLoading}
+                      style={styles.gpsStopButton}
+                      labelStyle={styles.gpsStopButtonText}
+                      icon="stop"
+                    >
+                      Stop GPS Tracking
+                    </Button>
+                  )}
+                </View>
               </View>
 
               <Button
                 mode="contained"
                 onPress={markJobComplete}
+                loading={gpsLoading}
+                disabled={gpsLoading}
                 style={styles.completeButton}
                 labelStyle={styles.completeButtonText}
+                icon="check"
               >
                 Mark as Complete
               </Button>
@@ -280,11 +440,63 @@ const styles = StyleSheet.create({
   activeJobSubstation: {
     color: "#1C1C1E", // theme.colors.onSurface
     fontWeight: "bold",
+    marginBottom: 16,
+  },
+  // GPS Tracking Styles
+  gpsSection: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: "#F8F9FA",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#E8E0D5",
+  },
+  gpsStatusContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 8,
   },
-  activeJobDescription: {
-    color: "#79747E", // theme.colors.outline
-    marginBottom: 16,
+  gpsIcon: {
+    marginRight: 8,
+  },
+  gpsStatusText: {
+    fontWeight: "500",
+    flex: 1,
+  },
+  locationInfoContainer: {
+    marginBottom: 12,
+    alignItems: "flex-start",
+  },
+  locationChip: {
+    backgroundColor: "#E3F2FD",
+    marginBottom: 4,
+  },
+  locationChipText: {
+    fontSize: 12,
+    fontFamily: "monospace",
+  },
+  accuracyText: {
+    color: "#757575",
+    fontSize: 12,
+    marginLeft: 4,
+  },
+  gpsControlsContainer: {
+    marginTop: 8,
+  },
+  gpsButton: {
+    backgroundColor: "#4CAF50",
+  },
+  gpsButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+  },
+  gpsStopButton: {
+    borderColor: "#F44336",
+    borderWidth: 1,
+  },
+  gpsStopButtonText: {
+    color: "#F44336",
+    fontWeight: "600",
   },
   completeButton: {
     backgroundColor: "#FFC107", // theme.colors.primary

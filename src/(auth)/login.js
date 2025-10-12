@@ -17,7 +17,6 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import * as LocalAuthentication from "expo-local-authentication";
 import { signIn as firebaseSignIn } from "../../services/authService";
-import { setupPushNotifications } from "../../services/notificationService";
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -60,10 +59,6 @@ export default function LoginScreen() {
     try {
       // Use Firebase Auth - AuthContext listens for auth state change and will render Home
       await firebaseSignIn(email, password);
-
-      // Setup push notifications after successful login
-      console.log("Setting up push notifications...");
-      await setupPushNotifications();
     } catch (e) {
       console.error("Login error", e);
       // Enhanced user-friendly error handling for Firebase errors
